@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>OpenXC Trace File Viewer</title>
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 80%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      /* file system */
+      .filesystem {
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+      #progress_bar {
+        margin: 10px 0;
+        padding: 3px;
+        border: 1px solid #000;
+        font-size: 14px;
+        clear: both;
+        opacity: 0;
+        -moz-transition: opacity 1s linear;
+        -o-transition: opacity 1s linear;
+        -webkit-transition: opacity 1s linear;
+      }
+      #progress_bar.loading {
+        opacity: 1.0;
+      }
+      #progress_bar .percent {
+        background-color: #99ccff;
+        height: auto;
+        width: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <p style="padding: 0 15px">
+      <strong>OpenXC Trace File Viewer</strong>: choose your .json file, examples are
+      <a target="_blank" href="http://openxcplatform.com/resources/traces.html">here</a>
+      .
+    </p>
+    <div class="filesystem">
+      <input type="file" id="files" name="file" />
+      <button onclick="abortRead();">Cancel read</button>
+      <div id="progress_bar"><div class="percent">0%</div></div>
+    </div>
+    <div id="map"></div>
+    <script>
+      var map;
+      var flightPath;
+
+      var marker_start;
+      var marker_end;
+
+      // This example creates a 2-pixel-wide red polyline showing the path of William
+      // Kingsford Smith's first trans-Pacific flight between Oakland, CA, and
+      // Brisbane, Australia.
+
+      function initMap() {
+        var flightPlanCoordinates = [
+          // {lat: 37.772, lng: -122.214},
+          // {lat: 21.291, lng: -157.821},
+          // {lat: -18.142, lng: 178.431},
+          // {lat: -27.467, lng: 153.027}
+        ];
+        // console.log(flightPlanCoordinates);
+
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 1,
+          // center: {lat: 0, lng: -180},
+          center: {lat: 0, lng: 0},
+          mapTypeId: 'terrain'
+        });
+
+        flightPath = new google.maps.Polyline({
+          path: flightPlanCoordinates,
+          geodesic: true,
+          strokeColor: '#FF0000',
+          strokeOpacity: 1.0,
+          strokeWeight: 2
+        });
+
+        marker_start = new google.maps.Marker({
+          position: null,
+          map: null,
+          icon: 'http://www.google.com/mapfiles/dd-start.png'
+        });
+        marker_end = new google.maps.Marker({
+          position: null,
+          map: null,
+          icon: 'http://www.google.com/mapfiles/dd-end.png'
+        });
+
+        flightPath.setMap(map);
+      }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC2gVW_0HcTP_Y6wxcWnTT6wDQQQV-HxAg&callback=initMap">
+    </script>
+    <script>
+      var reader;
+      var progress = document.querySelector('.percent');
+
+      var data;
+
+      function abortRead() {
+        reader.abort();
+      }
+
+      function errorHandler(evt) {
+        switch(evt.target.error.code) {
+          case evt.target.error.NOT_FOUND_ERR:
+            alert('File Not Found!');
+            break;
+          case evt.target.error.NOT_READABLE_ERR:
+            alert('File is not readable');
+            break;
+          case evt.target.error.ABORT_ERR:
+            break; // noop
+          default:
+            alert('An error occurred reading this file.');
+        };
+      }
+
+      function updateProgress(evt) {
+        // evt is an ProgressEvent.
+        if (evt.lengthComputable) {
+          var percentLoaded = Math.round((evt.loaded / evt.total) * 100);
+          // Increase the progress bar length.
+          if (percentLoaded < 100) {
+            progress.style.width = percentLoaded + '%';
+            progress.textContent = percentLoaded + '%';
+          }
+        }
+      }
+
+      function handleFileSelect(evt) {
+        // Reset progress indicator on new file selection.
+        progress.style.width = '0%';
+        progress.textContent = '0%';
+
+        reader = new FileReader();
+        reader.onerror = errorHandler;
+        reader.onprogress = updateProgress;
+        reader.onabort = function(e) {
+          alert('File read cancelled');
+        };
+        reader.onloadstart = function(e) {
+          document.getElementById('progress_bar').className = 'loading';
+        };
+        reader.onload = function(e) {
+          // Ensure that the progress bar displays 100% at the end.
+          progress.style.width = '100%';
+          progress.textContent = '100%';
+          setTimeout("document.getElementById('progress_bar').className='';", 2000);
+
+          // load data from json
+          data = new Object();
+          json_array = e.target.result.split('\n');
+          json_array.forEach(function(e) {
+            try {
+              var tmp = JSON.parse(e);
+              var tmp2 = {timestamp: tmp['timestamp'], value: tmp['value']};
+              if (!(tmp['name'] in data)) {
+                data[tmp['name']] = [tmp2];
+              } else {
+                data[tmp['name']].push(tmp2);
+              }
+            } catch (error) {
+              // do nothing
+            }
+          });
+
+          visualize();
+        }
+
+        function visualize() {
+          console.log(data);
+          // console.log(map);
+          // console.log(flightPath);
+
+          // handle lat and lng
+          var i = 0, j = 0;
+          var lat = [], lng = [];
+          var latlng = [];
+          while (i < data.latitude.length && j < data.longitude.length) {
+            if (Math.abs(data.latitude[i].timestamp - data.longitude[j].timestamp) < 0.1) {
+              latlng.push({
+                timestamp: (data.latitude[i].timestamp + data.longitude[j].timestamp) / 2,
+                lat: data.latitude[i].value,
+                lng: data.longitude[i].value,
+              });
+              lat.push(data.latitude[i].value);
+              lng.push(data.longitude[i].value);
+              i++; j++;
+            }
+            else if (data.latitude[i].timestamp > data.longitude[j].timestamp) {
+              j++;
+            } else {
+              i++;
+            }
+          }
+
+          // set path
+          map.setZoom(13);
+          map.setCenter({
+            lat: (Math.max.apply(null, lat) + Math.min.apply(null, lat)) / 2,
+            lng: (Math.max.apply(null, lng) + Math.min.apply(null, lng)) / 2,
+          });
+          flightPath.setPath(latlng);
+          marker_start.setPosition(latlng[0]);
+          marker_start.setMap(map);
+          marker_end.setPosition(latlng[latlng.length - 1]);
+          marker_end.setMap(map);
+
+        }
+
+        // Read in the image file as a binary string.
+        reader.readAsText(evt.target.files[0]);
+      }
+
+      document.getElementById('files').addEventListener('change', handleFileSelect, false);
+    </script>
+  </body>
+</html>
