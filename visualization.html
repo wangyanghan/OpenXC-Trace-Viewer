@@ -193,12 +193,17 @@
             }
           });
 
-          visualize();
+          // visualization
+          console.log(data);
+          if (data.latitude && data.longitude) {
+            visualize_map();
+          } else {
+            alert("No GPS data found!!");
+          }
+          visualize_chart();
         }
 
-        function visualize() {
-          console.log(data);
-
+        function visualize_map() {
           // handle lat and lng
           var i = 0, j = 0;
           var lat = [], lng = [];
@@ -220,7 +225,6 @@
               i++;
             }
           }
-
           // set path
           map.setZoom(13);
           map.setCenter({
@@ -232,7 +236,9 @@
           marker_start.setMap(map);
           marker_end.setPosition(latlng[latlng.length - 1]);
           marker_end.setMap(map);
+        }
 
+        function visualize_chart() {
           // draw chart
           var chart = $('#container').highcharts();
           chart.series[0].setData(highchartsFormat(data.vehicle_speed));
@@ -254,14 +260,15 @@
           // chart.series[0].setData(highchartsFormat(data.high_beam_status));
           // chart.series[0].setData(highchartsFormat(data.windshield_wiper_status));
           // chart.series[0].setData(highchartsFormat(data.button_event));
-
         }
 
         function highchartsFormat(input) {
           var output = [];
-          input.forEach(function (e) {
-            output.push([e.timestamp * 1000, e.value]);
-          });
+          try{
+            input.forEach(function (e) {
+              output.push([e.timestamp * 1000, e.value]);
+            });
+          } catch (error) {}
           return output;
         }
 
@@ -318,13 +325,17 @@
                       point: {
                           events: {
                               mouseOver: function () {
+                                if (data.latitude && data.longitude) {
                                   showCurrentPosition(this.x / 1000);
+                                }
                               }
                           }
                       },
                       events: {
                           mouseOver: function () {
+                            if (data.latitude && data.longitude) {
                               marker_current.setMap(map);
+                            }
                           },
                           mouseOut: function () {
                               marker_current.setMap(null);
@@ -355,7 +366,7 @@
                 }, {
                   name: 'Accelerator Pedal',
                   data: [],
-                  tooltip: {valueDecimals: 2},
+                  tooltip: {valueDecimals: 3},
                   visible: false,
                 }, {
                   name: 'Odometer',
@@ -365,12 +376,12 @@
                 }, {
                   name: 'Fuel Level',
                   data: [],
-                  tooltip: {valueDecimals: 2},
+                  tooltip: {valueDecimals: 5},
                   visible: false,
                 }, {
                   name: 'Fuel Consumed',
                   data: [],
-                  tooltip: {valueDecimals: 2},
+                  tooltip: {valueDecimals: 5},
                   visible: false,
                 },
               ]
