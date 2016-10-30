@@ -13,7 +13,8 @@
       /* Optional: Makes the sample page fill the window. */
       html, body {
         height: 100%;
-        margin: 0;
+        margin-left: 40px;
+        margin-right: 40px;
         padding: 0;
       }
       /* file system */
@@ -53,13 +54,17 @@
       <button onclick="abortRead();">Cancel read</button>
       <div id="progress_bar"><div class="percent">0%</div></div>
     </div>
+    <div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
     <div id="map"></div>
+
+    <!-- Google map api -->
     <script>
       var map;
       var flightPath;
 
       var marker_start;
       var marker_end;
+      var marker_current;
 
       // This example creates a 2-pixel-wide red polyline showing the path of William
       // Kingsford Smith's first trans-Pacific flight between Oakland, CA, and
@@ -99,6 +104,11 @@
           map: null,
           icon: 'http://www.google.com/mapfiles/dd-end.png'
         });
+        marker_current = new google.maps.Marker({
+          position: null,
+          map: null,
+          icon: 'http://www.google.com/mapfiles/marker.png'
+        });
 
         flightPath.setMap(map);
       }
@@ -106,11 +116,14 @@
     <script async defer
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC2gVW_0HcTP_Y6wxcWnTT6wDQQQV-HxAg&callback=initMap">
     </script>
+
+    <!-- file system -->
     <script>
       var reader;
       var progress = document.querySelector('.percent');
 
       var data;
+      var latlng;
 
       function abortRead() {
         reader.abort();
@@ -185,13 +198,11 @@
 
         function visualize() {
           console.log(data);
-          // console.log(map);
-          // console.log(flightPath);
 
           // handle lat and lng
           var i = 0, j = 0;
           var lat = [], lng = [];
-          var latlng = [];
+          latlng = [];
           while (i < data.latitude.length && j < data.longitude.length) {
             if (Math.abs(data.latitude[i].timestamp - data.longitude[j].timestamp) < 0.1) {
               latlng.push({
@@ -222,6 +233,36 @@
           marker_end.setPosition(latlng[latlng.length - 1]);
           marker_end.setMap(map);
 
+          // draw chart
+          var chart = $('#container').highcharts();
+          chart.series[0].setData(highchartsFormat(data.vehicle_speed));
+          chart.series[1].setData(highchartsFormat(data.engine_speed));
+          chart.series[2].setData(highchartsFormat(data.steering_wheel_angle));
+          chart.series[3].setData(highchartsFormat(data.torque_at_transmission));
+          chart.series[4].setData(highchartsFormat(data.accelerator_pedal_position));
+          chart.series[5].setData(highchartsFormat(data.odometer));
+          chart.series[6].setData(highchartsFormat(data.fuel_level));
+          chart.series[7].setData(highchartsFormat(data.fuel_consumed_since_restart));
+
+          // chart.series[0].setData(highchartsFormat(data.parking_brake_status));
+          // chart.series[0].setData(highchartsFormat(data.brake_pedal_status));
+          // chart.series[0].setData(highchartsFormat(data.transmission_gear_position));
+
+          // chart.series[0].setData(highchartsFormat(data.ignition_status));
+          // chart.series[0].setData(highchartsFormat(data.door_status));
+          // chart.series[0].setData(highchartsFormat(data.headlamp_status));
+          // chart.series[0].setData(highchartsFormat(data.high_beam_status));
+          // chart.series[0].setData(highchartsFormat(data.windshield_wiper_status));
+          // chart.series[0].setData(highchartsFormat(data.button_event));
+
+        }
+
+        function highchartsFormat(input) {
+          var output = [];
+          input.forEach(function (e) {
+            output.push([e.timestamp * 1000, e.value]);
+          });
+          return output;
         }
 
         // Read in the image file as a binary string.
@@ -229,6 +270,119 @@
       }
 
       document.getElementById('files').addEventListener('change', handleFileSelect, false);
+    </script>
+
+    <!-- highcharts -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+    <script src="https://code.highcharts.com/stock/highstock.js"></script>
+    <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+    <script>
+      $(function () {
+          // Create the chart
+          $('#container').highcharts('StockChart', {
+              rangeSelector: {
+                buttons: [{
+                    type: 'second',
+                    count: 1,
+                    text: '1s'
+                  }, {
+                    type: 'second',
+                    count: 10,
+                    text: '10s'
+                  }, {
+                    type: 'minute',
+                    count: 1,
+                    text: '1m'
+                  }, {
+                    type: 'minute',
+                    count: 10,
+                    text: '10m'
+                  }, {
+                    type: 'hour',
+                    count: 1,
+                    text: '1h'
+                  }, {
+                    type: 'all',
+                    text: 'All'
+                }]
+              },
+              title: {
+                  text: 'OpenXC trace file data'
+              },
+              legend: {
+                  enabled: true
+              },
+              plotOptions: {
+                  series: {
+                      point: {
+                          events: {
+                              mouseOver: function () {
+                                  showCurrentPosition(this.x / 1000);
+                              }
+                          }
+                      },
+                      events: {
+                          mouseOver: function () {
+                              marker_current.setMap(map);
+                          },
+                          mouseOut: function () {
+                              marker_current.setMap(null);
+                          }
+                      }
+                  }
+              },
+              series: [
+                {
+                  name: 'Vehicle Speed',
+                  data: [],
+                  tooltip: {valueDecimals: 2}
+                }, {
+                  name: 'Engine Speed',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                }, {
+                  name: 'Steering Angle',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                }, {
+                  name: 'Torque',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                }, {
+                  name: 'Accelerator Pedal',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                }, {
+                  name: 'Odometer',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                }, {
+                  name: 'Fuel Level',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                }, {
+                  name: 'Fuel Consumed',
+                  data: [],
+                  tooltip: {valueDecimals: 2},
+                  visible: false,
+                },
+              ]
+          });
+      });
+
+      function showCurrentPosition(t) {
+        var closest = latlng.reduce(function (prev, curr) {
+          return (Math.abs(curr.timestamp - t) < Math.abs(prev.timestamp - t) ? curr : prev);
+        });
+        marker_current.setPosition(closest);
+      }
     </script>
   </body>
 </html>
