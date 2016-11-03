@@ -243,8 +243,9 @@
         }
 
         function visualize_chart() {
-          // draw chart
+          // -- draw chart --
           var chart = $('#container').highcharts();
+          // numeric type
           chart.series[0].setData(highchartsFormat(data.vehicle_speed));
           chart.series[1].setData(highchartsFormat(data.engine_speed));
           chart.series[2].setData(highchartsFormat(data.steering_wheel_angle));
@@ -253,10 +254,20 @@
           chart.series[5].setData(highchartsFormat(data.odometer));
           chart.series[6].setData(highchartsFormat(data.fuel_level));
           chart.series[7].setData(highchartsFormat(data.fuel_consumed_since_restart));
-
-          // chart.series[0].setData(highchartsFormat(data.parking_brake_status));
-          // chart.series[0].setData(highchartsFormat(data.brake_pedal_status));
-          // chart.series[0].setData(highchartsFormat(data.transmission_gear_position));
+          // enum type
+          chart.series[8].setData(highchartsFormat(
+            data.parking_brake_status,
+            {true: 1, false: 0}
+          ));
+          chart.series[9].setData(highchartsFormat(
+            data.brake_pedal_status,
+            {true: 1, false: 0}
+          ));
+          chart.series[10].setData(highchartsFormat(
+            data.transmission_gear_position,
+            {first:1, second:2, third:3, fourth:4, fifth:5,
+              sixth:6, seventh:7, eighth:8, reverse:-1, neutral:0}
+          ));
 
           // chart.series[0].setData(highchartsFormat(data.ignition_status));
           // chart.series[0].setData(highchartsFormat(data.door_status));
@@ -266,12 +277,18 @@
           // chart.series[0].setData(highchartsFormat(data.button_event));
         }
 
-        function highchartsFormat(input) {
+        function highchartsFormat(input, dic) {
           var output = [];
           try{
-            input.forEach(function (e) {
-              output.push([e.timestamp * 1000, e.value]);
-            });
+            if (dic == undefined) {
+              input.forEach(function (e) {
+                output.push([e.timestamp * 1000, e.value]);
+              });
+            } else {
+              input.forEach(function (e) {
+                output.push([e.timestamp * 1000, dic[e.value]]);
+              });
+            }
           } catch (error) {}
           return output;
         }
@@ -386,6 +403,24 @@
                   name: 'Fuel Consumed',
                   data: [],
                   tooltip: {valueDecimals: 5},
+                  visible: false,
+                }, {
+                  name: 'Parking Brake',
+                  data: [],
+                  step: true,
+                  tooltip: {valueDecimals: 0},
+                  visible: false,
+                }, {
+                  name: 'Brake Pedal',
+                  data: [],
+                  step: true,
+                  tooltip: {valueDecimals: 0},
+                  visible: false,
+                }, {
+                  name: 'Gear Position',
+                  data: [],
+                  step: true,
+                  tooltip: {valueDecimals: 0},
                   visible: false,
                 },
               ]
