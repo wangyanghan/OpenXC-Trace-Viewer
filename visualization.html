@@ -8,13 +8,14 @@
       /* Always set the map height explicitly to define the size of the div
        * element that contains the map. */
       #map {
-        height: 80%;
+        margin-left: 55%;
+        height: 90%;
       }
       /* Optional: Makes the sample page fill the window. */
       html, body {
         height: 100%;
-        margin-left: 40px;
-        margin-right: 40px;
+        margin-left: 20px;
+        margin-right: 20px;
         padding: 0;
       }
       /* file system */
@@ -44,17 +45,20 @@
     </style>
   </head>
   <body>
-    <p style="padding: 0 15px">
-      <strong>OpenXC Trace File Viewer</strong>: choose your .json file, examples are
-      <a target="_blank" href="http://openxcplatform.com/resources/traces.html">here</a>
-      .
-    </p>
-    <div class="filesystem">
-      <input type="file" id="files" name="file" />
-      <button onclick="abortRead();">Cancel read</button>
-      <div id="progress_bar"><div class="percent">0%</div></div>
+    <div style="float:left; width: 53%;">
+      <p style="padding: 0 15px">
+        <strong>OpenXC Trace File Viewer</strong>: choose your .json file, examples are
+        <a target="_blank" href="http://openxcplatform.com/resources/traces.html">here</a>
+        .
+      </p>
+      <div class="filesystem">
+        <input type="file" id="files" name="file" />
+        <button onclick="abortRead();">Cancel read</button>
+        <div id="progress_bar"><div class="percent">0%</div></div>
+      </div>
+      <div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
     </div>
-    <div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+
     <div id="map"></div>
 
     <!-- Google map api -->
@@ -193,17 +197,12 @@
             }
           });
 
-          // visualization
-          console.log(data);
-          if (data.latitude && data.longitude) {
-            visualize_map();
-          } else {
-            alert("No GPS data found!!");
-          }
-          visualize_chart();
+          visualize();
         }
 
-        function visualize_map() {
+        function visualize() {
+          console.log(data);
+
           // handle lat and lng
           var i = 0, j = 0;
           var lat = [], lng = [];
@@ -225,6 +224,7 @@
               i++;
             }
           }
+
           // set path
           map.setZoom(13);
           map.setCenter({
@@ -236,9 +236,7 @@
           marker_start.setMap(map);
           marker_end.setPosition(latlng[latlng.length - 1]);
           marker_end.setMap(map);
-        }
 
-        function visualize_chart() {
           // draw chart
           var chart = $('#container').highcharts();
           chart.series[0].setData(highchartsFormat(data.vehicle_speed));
@@ -260,15 +258,14 @@
           // chart.series[0].setData(highchartsFormat(data.high_beam_status));
           // chart.series[0].setData(highchartsFormat(data.windshield_wiper_status));
           // chart.series[0].setData(highchartsFormat(data.button_event));
+
         }
 
         function highchartsFormat(input) {
           var output = [];
-          try{
-            input.forEach(function (e) {
-              output.push([e.timestamp * 1000, e.value]);
-            });
-          } catch (error) {}
+          input.forEach(function (e) {
+            output.push([e.timestamp * 1000, e.value]);
+          });
           return output;
         }
 
@@ -325,17 +322,13 @@
                       point: {
                           events: {
                               mouseOver: function () {
-                                if (data.latitude && data.longitude) {
                                   showCurrentPosition(this.x / 1000);
-                                }
                               }
                           }
                       },
                       events: {
                           mouseOver: function () {
-                            if (data.latitude && data.longitude) {
                               marker_current.setMap(map);
-                            }
                           },
                           mouseOut: function () {
                               marker_current.setMap(null);
@@ -366,7 +359,7 @@
                 }, {
                   name: 'Accelerator Pedal',
                   data: [],
-                  tooltip: {valueDecimals: 3},
+                  tooltip: {valueDecimals: 2},
                   visible: false,
                 }, {
                   name: 'Odometer',
@@ -376,12 +369,12 @@
                 }, {
                   name: 'Fuel Level',
                   data: [],
-                  tooltip: {valueDecimals: 5},
+                  tooltip: {valueDecimals: 2},
                   visible: false,
                 }, {
                   name: 'Fuel Consumed',
                   data: [],
-                  tooltip: {valueDecimals: 5},
+                  tooltip: {valueDecimals: 2},
                   visible: false,
                 },
               ]
