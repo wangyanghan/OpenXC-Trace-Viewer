@@ -180,9 +180,18 @@
           progress.textContent = '100%';
           setTimeout("document.getElementById('progress_bar').className='';", 2000);
 
-          // load data from json
+          // load data from json, stored in data.name
           data = new Object();
           json_array = e.target.result.split('\n');
+          // also calculate advanced stats, stored in data._name
+          const DISTANCE = 0.2; // in kilo-meter
+          const TIME = 60; // in an minute
+          var recentOdomEvt = [];
+          var recentFuelEvtByOdom = [];
+          var recentFuelEvtByTime = [];
+          data._fuel_rate = []; // Liter per Hour
+          data._fuel_efficiency = []; // Liter per 100 km
+
           json_array.forEach(function(e) {
             try {
               var tmp = JSON.parse(e);
@@ -192,8 +201,55 @@
               } else {
                 data[tmp['name']].push(tmp2);
               }
+              // update recentOdomEvt
+              if (tmp['name'] == 'odometer') {
+                recentOdomEvt.push(tmp2);
+                while (recentOdomEvt[0].value < tmp['value'] - DISTANCE) {
+                  recentOdomEvt.shift();
+                }
+              }
+              // update recentFuelEvt
+              if (tmp['name'] == 'fuel_consumed_since_restart') {
+                // update fuel by odom
+                recentFuelEvtByOdom.push(tmp2);
+                while(recentFuelEvtByOdom.length > 0
+                  && recentOdomEvt.length > 0
+                  && recentFuelEvtByOdom[0].timestamp < recentOdomEvt[0].timestamp) {
+                  recentFuelEvtByOdom.shift();
+                }
+                if (recentOdomEvt.length >= 2 && recentFuelEvtByOdom.length >= 2) {
+                  const odomTime = recentOdomEvt[recentOdomEvt.length - 1].timestamp - recentOdomEvt[0].timestamp;
+                  const odomVal = recentOdomEvt[recentOdomEvt.length - 1].value - recentOdomEvt[0].value;
+                  const fuelTimeByOdom = recentFuelEvtByOdom[recentFuelEvtByOdom.length - 1].timestamp - recentFuelEvtByOdom[0].timestamp;
+                  const fuelValByOdom = recentFuelEvtByOdom[recentFuelEvtByOdom.length - 1].value - recentFuelEvtByOdom[0].value;
+                  if (odomVal > 0.1) {
+                    data._fuel_efficiency.push({
+                      timestamp: tmp['timestamp'],
+                      value: fuelValByOdom * odomTime / odomVal / fuelTimeByOdom * 100,
+                    });
+                  }
+                }
+                // update fuel by time
+                recentFuelEvtByTime.push(tmp2);
+                while(recentFuelEvtByTime.length > 0
+                  && recentFuelEvtByTime[0].timestamp < recentFuelEvtByTime[recentFuelEvtByTime.length - 1].timestamp - TIME) {
+                  recentFuelEvtByTime.shift();
+                }
+                var ll = recentFuelEvtByTime.length;
+                if (ll >= 2) {
+                  const fuelTimeByTime = recentFuelEvtByTime[ll - 1].timestamp - recentFuelEvtByTime[0].timestamp;
+                  const fuelValByTime = recentFuelEvtByTime[ll - 1].value - recentFuelEvtByTime[0].value;
+                  if (fuelTimeByTime > 30) { // at least 30s
+                    data._fuel_rate.push({
+                      timestamp: tmp['timestamp'],
+                      value: fuelValByTime / fuelTimeByTime * 3600,
+                    });
+                  }
+                }
+              }
             } catch (error) {
               // do nothing
+              // console.log(error);
             }
           });
 
@@ -275,6 +331,9 @@
           // chart.series[0].setData(highchartsFormat(data.high_beam_status));
           // chart.series[0].setData(highchartsFormat(data.windshield_wiper_status));
           // chart.series[0].setData(highchartsFormat(data.button_event));
+
+          chart.series[11].setData(highchartsFormat(data._fuel_rate));
+          chart.series[12].setData(highchartsFormat(data._fuel_efficiency));
         }
 
         function highchartsFormat(input, dic) {
@@ -282,7 +341,9 @@
           try{
             if (dic == undefined) {
               input.forEach(function (e) {
-                output.push([e.timestamp * 1000, e.value]);
+                if (isFinite(e.value)) {
+                  output.push([e.timestamp * 1000, e.value]);
+                }
               });
             } else {
               input.forEach(function (e) {
@@ -421,6 +482,16 @@
                   data: [],
                   step: true,
                   tooltip: {valueDecimals: 0},
+                  visible: false,
+                }, {
+                  name: 'Fuel Rate (per hour)',
+                  data: [],
+                  tooltip: {valueDecimals: 5},
+                  visible: false,
+                }, {
+                  name: 'Fuel Efficiency (per 100km)',
+                  data: [],
+                  tooltip: {valueDecimals: 5},
                   visible: false,
                 },
               ]
